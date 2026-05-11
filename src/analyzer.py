@@ -1,9 +1,9 @@
 """
 analyzer.py
 ────────────────────────────────────────
-الغرض  : تحليل البيانات الخام إحصائياً
-          واستخراج معلومات ذات قيمة
-يعتمد  : على fetcher.py
+Purpose : Statistically analyze raw data
+          and extract valuable insights.
+Depends : fetcher.py
 ────────────────────────────────────────
 """
 
@@ -19,7 +19,7 @@ logger = get_logger("analyzer")
 
 @dataclass
 class WalletReport:
-    """هيكل التقرير الكامل لمحفظة واحدة"""
+    """Structure for a full single-wallet report"""
 
     address        : str
     balance_eth    : float
@@ -30,23 +30,23 @@ class WalletReport:
     avg_tx_value   : float
     largest_tx     : float
     top_addresses  : list  = field(default_factory=list)
-    risk_level     : str   = "غير محدد"
+    risk_level     : str   = "Undefined"
     warnings       : list  = field(default_factory=list)
 
 
 class WalletAnalyzer:
     """
-    يُحوّل البيانات الخام لتقرير إحصائي كامل
+   Converts raw data into a comprehensive statistical report
     """
 
     def __init__(self):
         self.fetcher           = EthereumFetcher()
         self.MIN_TX_FOR_ANALYSIS = 3
-        logger.info("تم تهيئة WalletAnalyzer")
+        logger.info("WalletAnalyzer initialized")
 
 
     def _to_dataframe(self, transactions: list[dict]) -> pd.DataFrame:
-        """يُحوّل قائمة المعاملات لجدول pandas"""
+        """ Converts transaction list to a pandas DataFrame"""
 
         if not transactions:
             return pd.DataFrame()
@@ -58,7 +58,7 @@ class WalletAnalyzer:
 
 
     def _success_rate(self, df: pd.DataFrame) -> float:
-        """يحسب نسبة المعاملات الناجحة"""
+        """Calculates the percentage of successful transactions"""
 
         if df.empty:
             return 0.0
@@ -66,7 +66,7 @@ class WalletAnalyzer:
 
 
     def _top_addresses(self, df: pd.DataFrame, top_n: int = 3) -> list[str]:
-        """يجد أكثر العناوين تفاعلاً"""
+        """Identifies the most interacted addresses"""
 
         if df.empty:
             return []
@@ -78,49 +78,49 @@ class WalletAnalyzer:
         for address, count in counts.most_common(top_n + 1):
             if len(result) == top_n:
                 break
-            result.append(f"{address[:12]}...({count} معاملة)")
+            result.append(f"{address[:12]}...({count} txs)")
 
         return result
 
 
     def _assess_risk(self, data: dict) -> tuple[str, list[str]]:
-        """يُقيّم مستوى الخطر ويُنشئ التحذيرات"""
+        """Evaluates risk level and generates warnings"""
 
         warnings   = []
         risk_score = 0
 
         if data["success_rate"] < 80:
             warnings.append(
-                f"⚠️ نسبة نجاح منخفضة: {data['success_rate']}%"
+                f"⚠️ Low success rate: {data['success_rate']}%"
             )
             risk_score += 2
 
         if (data["largest_tx"] > data["avg_tx_value"] * 10
                 and data["total_tx"] > self.MIN_TX_FOR_ANALYSIS):
             warnings.append(
-                f"⚠️ معاملة ضخمة شاذة: {data['largest_tx']:.4f} ETH"
+                f"⚠️ Anomalous large transaction: {data['largest_tx']:.4f} ETH"
             )
             risk_score += 1
 
         if (data["total_tx"] < self.MIN_TX_FOR_ANALYSIS
                 and data["balance_eth"] > 1.0):
-            warnings.append("⚠️ محفظة حديثة برصيد مرتفع")
+            warnings.append("⚠️ Recent wallet with high balance")
             risk_score += 1
 
         if risk_score == 0:
-            level = "🟢 منخفض"
+            level = "🟢 Low"
         elif risk_score <= 2:
-            level = "🟡 متوسط"
+            level = "🟡 Medium"
         else:
-            level = "🔴 مرتفع"
+            level = "🔴 High"
 
         return level, warnings
 
 
     def analyze(self, address: str, tx_limit: int = 50) -> WalletReport:
-        """الدالة الرئيسية — تُنتج التقرير الكامل"""
+        """Main function — Produces the full report"""
 
-        logger.info("بدء تحليل: %s", address[:16])
+        logger.info("Starting analysis for: %s", address[:16])
 
         balance      = self.fetcher.get_balance(address)
         transactions = self.fetcher.get_transactions(address, limit=tx_limit)
@@ -136,8 +136,8 @@ class WalletAnalyzer:
                 success_rate   = 0.0,
                 avg_tx_value   = 0.0,
                 largest_tx     = 0.0,
-                risk_level     = "🔵 لا بيانات كافية",
-                warnings       = ["لا توجد معاملات"],
+                risk_level     = "🔵 Not enough data",
+                warnings       = ["No transactions found"],
             )
 
         sent_df     = df[df["from"].str.lower() == address.lower()]
@@ -152,7 +152,7 @@ class WalletAnalyzer:
         }
         risk_level, warnings = self._assess_risk(risk_data)
 
-        logger.info("اكتمل التحليل — %d معاملة", len(df))
+        logger.info(" Analysis complete — %d transactions processed", len(df))
 
         return WalletReport(
             address        = address,

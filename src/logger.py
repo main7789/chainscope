@@ -1,8 +1,8 @@
 """
 logger.py
 ────────────────────────────────────────
-الغرض  : نظام تسجيل مركزي لكل أحداث المشروع
-يُستورد: في كل ملفات المشروع الأخرى
+Purpose : Central logging system for the project.
+Imported: By all other project files.
 ────────────────────────────────────────
 """
 
@@ -12,7 +12,7 @@ from pathlib import Path
 from datetime import datetime
 from rich.logging import RichHandler
 
-# ── إنشاء مجلد السجلات ──
+# ── Create logs directory ──
 LOGS_DIR = Path("logs")
 LOGS_DIR.mkdir(exist_ok=True)
 
@@ -21,21 +21,21 @@ LOG_FILE = LOGS_DIR / f"chainscope_{datetime.now().strftime('%Y-%m-%d')}.log"
 
 def get_logger(name: str) -> logging.Logger:
     """
-    تُنشئ مسجّلاً جاهزاً للاستخدام
+    Creates a ready-to-use logger instance.
 
-    name : اسم الملف الذي يطلب المسجّل
-           يظهر في كل رسالة لتحديد مصدرها
+    name : Name of the module requesting the logger
+           (appears in messages to identify the source).
     """
 
     logger = logging.getLogger(name)
 
-    # إذا المسجّل مُعدّ مسبقاً — لا نُعيد ضبطه
+    # If logger is already configured — do not reset it
     if logger.handlers:
         return logger
 
     logger.setLevel(logging.DEBUG)
 
-    # ── قناة الشاشة ──
+    # ── Console Handler (Visible output) ──
     console_handler = RichHandler(
         rich_tracebacks=True,
         show_path=False,
@@ -43,7 +43,7 @@ def get_logger(name: str) -> logging.Logger:
     )
     console_handler.setLevel(logging.INFO)
 
-    # ── قناة الملف ──
+    # ── File Handler (Debug logs) ──
     file_handler = logging.FileHandler(
         LOG_FILE,
         encoding="utf-8",

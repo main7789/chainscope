@@ -1,9 +1,9 @@
 """
 fetcher.py
 ────────────────────────────────────────
-الغرض  : جلب البيانات الخام من شبكة Ethereum
-          عبر Etherscan API V2
-يعتمد  : على logger.py و cache.py
+Purpose : Fetch raw data from Ethereum network
+          via Etherscan API V2.
+Depends : logger.py and cache.py
 ────────────────────────────────────────
 """
 
@@ -28,11 +28,11 @@ class EthereumFetcher:
 
     def __init__(self):
         if not API_KEY:
-            raise ValueError("ETHERSCAN_API_KEY غير موجود في ملف .env")
+            raise ValueError("ETHERSCAN_API_KEY missing in .env file")
         self.api_key  = API_KEY
         self.base_url = BASE_URL
         self.cache    = CacheManager()
-        logger.info("تم تهيئة EthereumFetcher")
+        logger.info("EthereumFetcher initialized")
 
     def _make_request(self, params: dict) -> dict:
         params["apikey"]  = self.api_key
@@ -43,17 +43,17 @@ class EthereumFetcher:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.Timeout:
-            logger.error("انتهت مهلة الاتصال")
-            raise TimeoutError("الخادم لم يستجب خلال 15 ثانية")
+            logger.error("Connection timeout")
+            raise TimeoutError("Server did not respond within 15 seconds")
         except requests.exceptions.ConnectionError:
-            logger.error("فشل الاتصال بالإنترنت")
-            raise ConnectionError("تحقق من اتصالك بالإنترنت")
+            logger.error("Internet connection failure")
+            raise ConnectionError("Please check your internet connection")
 
     def get_balance(self, address: str) -> float:
         cache_key = f"balance_{address}"
         cached    = self.cache.get(cache_key)
         if cached is not None:
-            logger.info("الرصيد من الكاش: %.6f ETH", cached)
+            logger.info("Balance from cache: %.6f ETH", cached)
             return cached
         params = {
             "module" : "account",
@@ -63,17 +63,17 @@ class EthereumFetcher:
         }
         data = self._make_request(params)
         if data.get("status") != "1":
-            raise ValueError(f"خطأ من API: {data.get('message')} — {data.get('result')}")
+            raise ValueError(f"API Error: {data.get('message')} — {data.get('result')}")
         balance = round(int(data["result"]) / WEI_TO_ETH, 6)
         self.cache.set(cache_key, balance)
-        logger.info("الرصيد: %.6f ETH", balance)
+        logger.info("Balance: %.6f ETH", balance)
         return balance
 
     def get_transactions(self, address: str, limit: int = 50) -> list[dict]:
         cache_key = f"txs_{address}_{limit}"
         cached    = self.cache.get(cache_key)
         if cached is not None:
-            logger.info("المعاملات من الكاش: %d معاملة", len(cached))
+            logger.info("Transactions from cache: %d transactions", len(cached))
             return cached
         params = {
             "module"    : "account",
@@ -87,7 +87,7 @@ class EthereumFetcher:
         }
         data = self._make_request(params)
         if data.get("status") != "1":
-            logger.warning("لا توجد معاملات: %s", data.get("message"))
+            logger.warning("No transactions found: %s", data.get("message"))
             return []
         transactions = [
             {
@@ -101,5 +101,5 @@ class EthereumFetcher:
             for tx in data["result"]
         ]
         self.cache.set(cache_key, transactions)
-        logger.info("تم جلب %d معاملة", len(transactions))
+        logger.info("Fetched %d transactions", len(transactions))
         return transactions

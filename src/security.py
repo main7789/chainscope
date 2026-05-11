@@ -1,8 +1,8 @@
 """
 security.py
 ────────────────────────────────────────
-الغرض  : تدقيق أمني متعمق — كشف 5 أنماط احتيال
-يعتمد  : على fetcher.py و analyzer.py
+Purpose : Deep security audit — Detects 5 fraud patterns.
+Depends : fetcher.py and analyzer.py
 ────────────────────────────────────────
 """
 
@@ -17,16 +17,16 @@ logger = get_logger("security")
 
 
 class ThreatLevel(Enum):
-    CLEAN    = "🟢 نظيف"
-    LOW      = "🔵 منخفض"
-    MEDIUM   = "🟡 متوسط"
-    HIGH     = "🟠 مرتفع"
-    CRITICAL = "🔴 حرج"
+    CLEAN    = "🟢 Clean"
+    LOW      = "🔵 Low"
+    MEDIUM   = "🟡 Medium"
+    HIGH     = "🟠 High"
+    CRITICAL = "🔴 Critical"
 
 
 @dataclass
 class ThreatSignal:
-    """إشارة تهديد واحدة مكتشفة"""
+    """Represents a single detected threat signal"""
     name        : str
     level       : ThreatLevel
     description : str
@@ -35,7 +35,7 @@ class ThreatSignal:
 
 @dataclass
 class SecurityReport:
-    """التقرير الأمني الشامل"""
+    """Structure for the comprehensive security report"""
     address        : str
     overall_level  : ThreatLevel
     signals        : list = field(default_factory=list)
@@ -44,7 +44,7 @@ class SecurityReport:
 
 
 class SecurityThresholds:
-    """قيم الحدود المستخدمة في الكشف"""
+    """Detection threshold values"""
     DUST_MAX_ETH    = 0.001
     DUST_MIN_COUNT  = 3
     WASH_RATIO      = 0.3
@@ -58,12 +58,12 @@ class SecurityThresholds:
 
 
 class SecurityAnalyzer:
-    """يفحص المحافظ بحثاً عن 5 أنماط مشبوهة"""
+    """Analyzes wallets for 5 suspicious behavioral patterns"""
 
     def __init__(self):
         self.fetcher   = EthereumFetcher()
         self.threshold = SecurityThresholds()
-        logger.info("تم تهيئة SecurityAnalyzer")
+        logger.info("SecurityAnalyzer initialized")
 
 
     def _detect_wash_trading(self, df: pd.DataFrame, address: str):
@@ -82,7 +82,7 @@ class SecurityAnalyzer:
                 return ThreatSignal(
                     name        = "Wash Trading",
                     level       = ThreatLevel.HIGH,
-                    description = f"نفس الزوج يتكرر {count} مرة ({ratio*100:.1f}%)",
+                    description = f"Same pair repeated {count} times ({ratio*100:.1f}%)",
                     evidence    = {"pair": str(pair), "repetitions": int(count)},
                 )
         return None
@@ -96,7 +96,7 @@ class SecurityAnalyzer:
         if sent_df.empty:
             return None
 
-        largest      = sent_df["value_eth"].max()
+        largest       = sent_df["value_eth"].max()
         total_volume = sent_df["value_eth"].sum()
 
         if total_volume <= 0:
@@ -107,7 +107,7 @@ class SecurityAnalyzer:
             return ThreatSignal(
                 name        = "Dumping Pattern",
                 level       = ThreatLevel.CRITICAL,
-                description = f"معاملة واحدة بقيمة {largest:.4f} ETH = {ratio*100:.1f}% من الرصيد",
+                description = f"Single tx of {largest:.4f} ETH = {ratio*100:.1f}% of total value",
                 evidence    = {"largest_tx": round(largest, 6), "dump_pct": round(ratio*100, 2)},
             )
         return None
@@ -129,7 +129,7 @@ class SecurityAnalyzer:
         return ThreatSignal(
             name        = "Dusting Attack",
             level       = level,
-            description = f"{len(dust_df)} معاملة غبار من {unique_senders} مرسل",
+            description = f"{len(dust_df)} dust transactions from {unique_senders} senders",
             evidence    = {"dust_count": len(dust_df), "senders": int(unique_senders)},
         )
 
@@ -153,7 +153,7 @@ class SecurityAnalyzer:
             return ThreatSignal(
                 name        = "Rapid Drain",
                 level       = ThreatLevel.HIGH,
-                description = f"آخر {SecurityThresholds.DRAIN_WINDOW_TX} معاملات = {ratio*100:.1f}% من الإرسال",
+                description = f"Last {SecurityThresholds.DRAIN_WINDOW_TX} txs = {ratio*100:.1f}% of total sent volume",
                 evidence    = {"window_volume": round(window_volume, 6), "drain_pct": round(ratio*100, 2)},
             )
         return None
@@ -172,7 +172,7 @@ class SecurityAnalyzer:
         return ThreatSignal(
             name        = "Mixer Interaction",
             level       = ThreatLevel.CRITICAL,
-            description = f"تفاعل مع {len(found)} خلاط عملات معروف",
+            description = f"Interacted with {len(found)} known crypto mixers",
             evidence    = {"mixers_found": list(found)},
         )
 
@@ -191,22 +191,22 @@ class SecurityAnalyzer:
 
     def _recommendation(self, level: ThreatLevel, signals: list) -> str:
         texts = {
-            ThreatLevel.CLEAN    : "✅ المحفظة نظيفة — يمكن التعامل بثقة",
-            ThreatLevel.LOW      : "🔵 نشاط غير معتاد — تعامل بحذر",
-            ThreatLevel.MEDIUM   : "🟡 نمط مشبوه — لا ترسل مبالغ كبيرة",
-            ThreatLevel.HIGH     : "🟠 خطر — تجنب التعامل بمبالغ مهمة",
-            ThreatLevel.CRITICAL : "🔴 خطر حرج — لا تتعامل مع هذه المحفظة",
+            ThreatLevel.CLEAN    : "✅ Wallet is clean — Safe to interact with.",
+            ThreatLevel.LOW      : "🔵 Unusual activity — Proceed with caution.",
+            ThreatLevel.MEDIUM   : "🟡 Suspicious patterns — Avoid sending large amounts.",
+            ThreatLevel.HIGH     : "🟠 Risk detected — Avoid transacting with significant funds.",
+            ThreatLevel.CRITICAL : "🔴 Critical Risk — Do NOT interact with this wallet.",
         }
         base = texts[level]
         if signals:
-            base += "\n  المخاطر: " + "، ".join(s.name for s in signals)
+            base += "\n  Risks: " + ", ".join(s.name for s in signals)
         return base
 
 
     def audit(self, address: str, tx_limit: int = 50) -> SecurityReport:
-        """الدالة الرئيسية — تُشغّل كل الكاشفات"""
+        """Main function — Executes all detectors"""
 
-        logger.info("بدء التدقيق الأمني: %s", address[:16])
+        logger.info("Starting security audit for: %s", address[:16])
 
         transactions = self.fetcher.get_transactions(address, limit=tx_limit)
         balance      = self.fetcher.get_balance(address)
@@ -223,10 +223,10 @@ class SecurityAnalyzer:
         signals = [s for s in detectors if s is not None]
 
         for s in signals:
-            logger.warning("تهديد مكتشف: %s — %s", s.name, s.level.value)
+            logger.warning("Threat detected: %s — %s", s.name, s.level.value)
 
         overall = self._overall_level(signals)
-        logger.info("اكتمل التدقيق — المستوى: %s", overall.value)
+        logger.info("Audit complete — Final Level: %s", overall.value)
 
         return SecurityReport(
             address        = address,

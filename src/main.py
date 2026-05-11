@@ -1,9 +1,8 @@
 """
 main.py
 ────────────────────────────────────────
-الغرض  : نقطة التشغيل الرئيسية للمشروع
-الأمر  : python src/main.py
-
+Purpose : Main execution point of the project.
+Command : python src/main.py
 ────────────────────────────────────────
 """
 
@@ -22,8 +21,8 @@ def main():
     TEST_ADDRESS = "0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe"
 
     logger.info("=" * 50)
-    logger.info("تشغيل ChainScope")
-    logger.info("العنوان: %s", TEST_ADDRESS)
+    logger.info("Starting ChainScope")
+    logger.info("Target Address: %s", TEST_ADDRESS)
     logger.info("=" * 50)
 
     dashboard = ChainScopeDashboard()
